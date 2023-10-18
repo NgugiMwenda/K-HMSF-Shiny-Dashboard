@@ -1,0 +1,306 @@
+#shinny dash fo hmsf. Prepared by Ngugi Mwenda, PhD
+
+#source("susor.R")  #uncomment to download data from the server
+setwd('C:\\Users\\Prof\\Desktop\\myshinn\\KHMSF_Dashboard')
+
+source("f_process.R")
+
+data1<-nm3 %>% group_by(County) %>% summarise(n=n())
+
+fin_str$structure_residential<-ifelse(fin_str$str_residential==1, "Residential",
+                                      ifelse(fin_str$str_residential==2,"Non Residential",
+                                             "Research Assistant did not select"))
+data2<-fin_str %>% group_by(structure_residential) %>% summarise(number_of_residential_structures=n())
+
+data3<-hsfinal %>% group_by(County, HU_occupied) %>%  summarise(Total_occupied=n()) %>%  data.frame()
+data3$Occupied<-ifelse(data3$HU_occupied==1,"Occupied",ifelse(data3$HU_occupied==2, "Not Occupied",  "Research Assistant did not Answer"))
+#head(hsfinal)
+
+#operate a business
+hh_b<-hsfinal %>% select(County,operate_business)%>%as.data.frame()%>% select(-cluster_number)%>%
+  group_by(County,operate_business) %>%summarise(Tot_bus=n())
+hh_b$operate_bus<-ifelse(hh_b$operate_business==1, "Yes",ifelse(hh_b$operate_business==2,"No", "NA"))
+hh_c<-hh_b %>% select(County,Tot_bus,operate_bus)
+##-------end operate a busines
+date_e<-na4 %>% select(date_end)%>% filter(date_end!="##N/A##")%>% filter(!is.na(date_end))
+#convert character to date format
+date_e$date_end <- as.Date(substr(date_e$date_end,1,10))
+date_e3<-date_e %>% group_by(date_end)%>% summarise(total_interv=n())%>% filter(!is.na(date_end))
+date_e4<-date_e3 %>% mutate(cum_int = cumsum(total_interv))
+
+
+####--------------------------------------------------------------------------start ui
+ui <-  bootstrapPage(
+  #tags$head(includeHTML("gtag.html")),
+  navbarPage("Kenya Master Household Sampling Frame (K-HMSF)", 
+             collapsible = TRUE, 
+             inverse = TRUE, 
+             theme = shinytheme("journal"),   #journal #united  #flatly
+            
+             
+              tabPanel("National Statistics",mainPanel(plotOutput(outputId = "bar1", height = "600px"))),
+             tabPanel("County Statistics",
+                      fluidPage(
+                        tabsetPanel(
+                          tabPanel("Total Structures in the Counties", mainPanel(plotOutput(outputId = "pie1", height = "600px"))),
+                          tabPanel("Total Household Occupation in the Counties", mainPanel(plotOutput(outputId = "bar2", height = "600px"))),
+                          tabPanel("Total Number of Households in the Counties", mainPanel(tableOutput(outputId = "tab1"))),
+                          tabPanel("Total Number of Households Operting  Business in the County",mainPanel(plotOutput(outputId = "bar3", height = "600px")))
+                        ))),
+             tabPanel("Individual Statistics",
+                      fluidPage(
+                        tabsetPanel(
+                          tabPanel("Total Submission of Interviews per Day", mainPanel(plotOutput(outputId = "ts1", height = "600px"))),
+                          tabPanel("Total Cumulative Interviews per Day", mainPanel(plotOutput(outputId = "ts2", height = "600px"))),
+                          tabPanel("cc"),
+                          tabPanel("dd")
+                        ))), 
+           #  tabPanel("Geospatial Statistics",  mainPanel(leafletOutput("map"))),
+             tabPanel("Geospatial Statistics",  mainPanel(leafletOutput("map",width="100%", height="100%"))),
+             
+           #  tabPanel("Geospatial Statistics",  leafletOutput("map",width="100%", height="100%")),
+              #        absolutePanel(id = "controls", class = "panel panel-default",
+               #                     top = 75, left = 55, width = 250, fixed=TRUE,
+               #                     draggable = TRUE, height = "auto")),
+             
+             tabPanel("Indicators",
+                      fluidPage(
+                        tabsetPanel(
+                          tabPanel("National Indicators"),
+                          tabPanel("County Indicators"),
+                          tabPanel("SDG Indicators")
+                      ))),
+             tabPanel("Field Progress Report",
+                      numericInput("maxrows", "Rows to show", 15),
+                      verbatimTextOutput("rawtable"),
+                      downloadButton("downloadCsv", "Download as CSV")),
+             tabPanel("Field Errors",
+                      sidebarLayout(
+                        sidebarPanel(
+                          # Input: Choose dataset ----
+                          selectInput("dataset", "Choose the file with the errors:",
+                                      choices = c("Misssing GPS Pick for the Structure",
+                                                  "Households Missing Occupation status")),
+                          
+                          # Button
+                          downloadButton("downloadData", "Download as CSV")
+                        ),
+                        
+                        # Main panel for displaying outputs ----
+                        mainPanel(
+                          
+                          tableOutput("table")
+                        )
+                      )
+                      ),
+             tabPanel("Final Datasets"),
+             tabPanel("About K-HMSF", 
+                      
+tags$h4("Kenya Household Master Sample Frame (K-HMSF) Development"),
+"As the Principal Government agency mandated to collect official statistics, Kenya National Bureau of Statistics (KNBS) maintains sampling frames. 
+It is from these sampling frames that samples are scientifically drawn for participation in surveys. 
+Data collected from these surveys is used for evidence-based policy formulation and monitoring.
+One of these sampling frames is the Kenya Household Master Sample Frame (K-HMSF) which is created after conducting a Population and Housing Census. 
+Following completion of the 2019 Kenya Population and Housing Census, KNBS has began the process of creating a new sampling frame. 
+The frame will be based on the Enumeration Areas (EAs) used during the 2019 Population and Housing Census.
+The Master Sample Frame is developed in stages. KNBS is developing Phase 2 of the Frame, and calls on your support in this 
+undertaking in providing employees access to the enumeration areas. The exercise will be conducted by a team of KNBS employees, 
+whose names and ID numbers will be indicated in letters signed by the KNBS County Statistical Officers. The research teams will be 
+accompanied by Village Elders. Data collection began on 2nd October to 15th December 2023 in the entire country. This is a national exercise." ,
+tags$br(),
+tags$br(),
+"Queries regarding this exercise may be addressed to: bavusevwa@knbs.or.ke",
+tags$br(),
+tags$h4("R Code"),
+"The R Code used to gernerate this dashboard will be archived here", 
+tags$a(href="https://github.com/NgugiMwenda/K-HMSF-Shiny-Dashboard", "Github, Ngugi Mwenda"),
+tags$br(),
+tags$h4("Author"),
+"Dr Ngugi Mwenda, Sampling Methods & Standards Division, Statistical Co-ordination & Methods Directorate, Kenya National Bureau of Statistics",
+tags$br(),
+tags$h4("Contacts"),
+"Official:", tags$i("smwenda@knbs.or.ke") , "Personal:", tags$i("geeglm2020@gmail.com"),
+tags$br(),
+tags$h4("Disclaimer"),
+tags$i("This work and all the codes are property of Kenya Natinal Bureau of Statistics. 
+It was developed when the author was an employee at the Bureau. It is copyrighted by the Bureau and any use, replication in any form,
+a consent must be done in writting using directorgeneral@knbs.or.ke"),
+             ),  
+      ) 
+)
+  
+
+server <- function(input, output, session) {
+  
+  ##download errors
+  
+  # Reactive value for selected dataset ----
+  datasetInput <- reactive({
+    switch(input$dataset,
+            "Misssing GPS Pick for the Structure" = mis_pick_str,
+           "Households Missing Occupation status"=HH_mis_ocupied_status)
+  })
+  
+  # Table of selected dataset ----
+  output$table <- renderTable({ datasetInput()})
+  # Downloadable errors csv of selected dataset ----
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste(input$dataset, ".csv", sep = "")
+    },
+    content = function(file) {
+      write.csv(datasetInput(), file, row.names = FALSE)
+    }
+  )
+  ###
+  output$rawtable <- renderPrint({
+ #   datasetInpu()
+    nm3
+    orig <- options(width = 1000)
+    print(head(nm3, input$maxrows), row.names = FALSE)
+    options(orig)
+  })
+  output$downloadCsv <- downloadHandler(
+    filename = function() {
+      paste(nm3, ".csv", sep= "")
+    },
+    content = function(file) {
+      write.csv(nm3, file, row.names = FALSE)
+    }
+  )
+  
+  # Downloadable csv of selected dataset ----field progress
+#  output$downloadCsv <- downloadHandler(
+#    filename = function() {
+#      paste(input$nm3, ".csv", sep = "")
+#    },
+#    content = function(file) {
+#      write.csv(datasetInpu(), file, row.names = FALSE)
+#    }
+#  )
+  
+  ##table output
+  
+  output$tab1<-renderTable({hsfinal })
+  
+  ##pie chart
+  output$ts1<-renderPlot({
+    
+    ggplot(date_e3, aes(x=date_end, y=total_interv)) +
+      geom_line() + 
+      xlab("Date of Submission")+
+      ylab("Total interviews Submitted")+
+      ggtitle("Total interviews submitted per Day")
+    
+  })
+  
+  
+  ##pie chart
+  output$ts2<-renderPlot({
+    
+    ggplot(date_e4, aes(x=date_end, y=cum_int)) +
+      geom_line() + 
+      xlab("Date of Submission")+
+      ylab("Total Cumulative Interviews")+
+      ggtitle("Total Cumulated interviews submitted to Date")
+    
+  })
+  
+  
+  
+  
+  
+  
+  ##pie chart
+  output$pie1<-renderPlot({
+    
+    ggplot(data2, aes(x = "", y = number_of_residential_structures, fill = structure_residential)) +
+      geom_col(color = "black") +
+      geom_label(aes(label = number_of_residential_structures),
+                 position = position_stack(vjust = 0.5),
+                 show.legend = FALSE) +
+      coord_polar(theta = "y") +xlab("")+ylab("Total Structures")+
+      ggtitle("Total Number of structures and the types")
+    
+  })
+  ##operate a business
+  output$bar3<-renderPlot({
+    
+    hh_c %>%
+      #select(-DECL_PERIO) %>%
+      #pivot_longer(-Years, names_to = "per", values_to = "Percentage") %>%
+      ggplot(aes(County, Tot_bus, fill =operate_bus )) +
+      geom_col(position = "dodge") +
+      scale_fill_manual(name = "Operate a business?", 
+                        labels = c("Yes", "No", "NA"),
+                        values = c(Yes = "red", No = "blue", is.na="green"))+
+      ylab("Total Business operators")+
+      ggtitle("Number of Households operating a Business in the County")
+    
+  })
+  
+  ##first bar plot
+  # The colors
+  BLUE <- "#076fa2"
+  RED <- "#E3120B"
+  BLACK <- "#202020"
+  GREY <- "grey50"
+  BROWN<-"#A52A2A"
+  output$bar1<-renderPlot({
+     ggplot(data1) +
+      geom_col(aes(n, County), fill = BROWN, width = 0.6) +
+      xlab("Number of EAs Covered under Region 1")+
+      ylab("County in Region 1")+
+      ggtitle("EAs covered as at today")
+    
+  })
+  
+  ##first bar plot
+  output$bar2<-renderPlot({
+    data4<-data3 %>% select(-HU_occupied) %>% data.frame()
+    data4%>%ggplot(aes(x = County, y = Total_occupied, group = County, fill = Occupied)) +
+      geom_col(position = "dodge")+ylab("Total Housing Units Occupied")+
+      ggtitle("Total Housing Units Occupied in the Counties")
+    
+    
+  })
+  
+  output$rawtable <- renderPrint({
+    nm3
+    orig <- options(width = 1000)
+    print(head(fin_str, input$maxrows), row.names = FALSE)
+    options(orig)
+  })
+
+  
+  output$map <- renderLeaflet({ 
+      leaflet() %>%
+      addProviderTiles(providers$Esri.WorldImagery,options = providerTileOptions(noWrap = FALSE)) %>%
+      addCircles(data = quick.count, weight = 2,radius=5,color="#FFFF00", stroke = FALSE, fillOpacity = 1)%>%  
+      addCircles(data = segmentation, weight = 2, radius=5,color="#FFFFFF", stroke = TRUE, fillOpacity = 1) %>%
+      addCircles(data = gps.tap, weight = 2, radius=5,color="#FF00FF", stroke = TRUE, fillOpacity = 1) %>%
+      addCircles(data = centroid,color="#FF0000") %>%
+      addCircles(data = gps.pick, weight = 2, radius=5,color="#00FFFF", stroke = TRUE, fillOpacity = 1) %>%
+      addPolygons(data = kenya.polys, weight = 2,color="white",stroke = TRUE, fillOpacity = 0.000, popup = ~FIRST_CouN) %>%
+      addPolygons(data = kenya.polys2, weight = 2,color="yellow",stroke = TRUE, 
+                  fillOpacity = 0.000, popup =~Search,label=~Search,group ="kenya.polys2") %>%
+      addLegend("bottomright", colors= c("#FFFF00","#FFFFFF", "#FF00FF","#00FFFF", "#FF0000"), 
+                labels=c("Quick Count", "Segmentation Line" ,"Actual Listing GPS Tap",
+                         "Actual Listing GPS Pick", "Centroid of Selected Segement"),
+                title="Cartographic GPS Coordinates")  %>%
+      addResetMapButton() %>%
+      addSearchFeatures(
+        targetGroups  = "kenya.polys2",
+        options = searchFeaturesOptions(zoom = 10, openPopup = TRUE,
+                                        firstTipSubmit = TRUE, autoCollapse = FALSE, hideMarkerOnCollapse = TRUE))%>%
+      addControl("<P><B>Hint!</B> Click on the Search button above.....<br/><ul><li>Type the firts 3 digits EA Code.. e.g 134...</li><li>Or the First 2 letters of the EA, e.g mu..</li></P>",
+                 position = "topleft")
+    
+    
+  })
+ 
+}
+
+shinyApp(ui = ui, server = server)
+
+
